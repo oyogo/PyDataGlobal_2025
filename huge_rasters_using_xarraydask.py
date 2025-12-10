@@ -375,7 +375,7 @@ def run_pipeline():
         
         # Save combined results
         os.makedirs(output_dir, exist_ok=True)
-        output_file = os.path.join(output_dir, "zonal_stats_all_folders.csv")
+        output_file = os.path.join(output_dir, "zonal_stats_all.csv")
         combined_df.to_csv(output_file, index=False)
       
         print(combined_df.head(10))
