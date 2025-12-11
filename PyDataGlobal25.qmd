@@ -16,7 +16,6 @@ editor: visual
 -   Solution architecture
 -   Critical design decisions
 -   Best practises summary
--   Conclusion
 -   Further reading
 
 ## Definitions {.smaller}
@@ -268,13 +267,6 @@ LAYER 4: Merge Results (1 task)
 Total: 781 tasks
 
 ```         
-## Dask graph best practises {.smaller}
-- Use persist to reset graph. 
-- Monitor your graph size.  
-- Choose the right Dask API. 
-  - For instance map_blocks vs delayed. 
-  - map_blocks failed because it expects array-like outputs whereas my function returns dictionaries so metadata inference fails. 
-  - delayed worked as its flexible for arbitrary Python objects and it doesn't require metadata. 
 
 ## 5. Reprojection with WarpedVRT {.smaller}
 Before discovering WarpedVRT, reprojection was a pain point, even with chunking. 
@@ -300,13 +292,35 @@ Chunk 2 needs data from: B + D      ← Redundant reads!
 - This is a virtual raster format that performs on-demand, windowed reprojection.   
 - How it works:  
   - It reads and writes data in chunks or directly between files. 
-  - This it does by creating a virtual file/view (think of it like a database view) with the desired CRC and resolution. 
+  - This it does by creating a virtual file/view (think of it like a database view) with the desired CRS and resolution. 
   - So when reading the chunks for further processing, we are actually reading from the reprojected raster. 
   
 ::: {.callout-tip}
 You can also use command-line tool like GDAL to reproject your files. 
 :::
-         
+
+## 6. Dask configuration
+:::: {.columns}
+
+::: {.column width="50%"}
+
+::: {.callout-tip} 
+- Depending on your resources, choosing the right configuration determines how fast your pipeline executes, or even, whether it executes.  
+- For my case - more workers with less threads worked best. And of course working within available RAM.  
+- what to consider - are your operations cpu-bound or I/O bound.  
+:::
+
+:::
+
+::: {.column width="50%"}
+
+  ![](www/dask_configuration.png)
+:::
+::::
+## Pipeline summary
+
+![](www/pipeline_workflow.png) 
+
 ## Key lessons {.smaller}
 
 1.Chunking is fundamental. 
@@ -320,12 +334,7 @@ You can also use command-line tool like GDAL to reproject your files.
 - Single compute() for complex workflows.
 - WarpedVRT enables lazy reprojection.
 
-3.Choose the right abstraction. 
-
-- map_blocks for array transformations.
-- delayed for custom aggregations.
-
-4.The journey is iterative.  
+3.The journey is iterative.  
 
 - Each error teaches something.
 - Debugging deepens understanding.

@@ -38,17 +38,17 @@ def start_dask():
     Initialize Dask distributed client for parallel processing.
     
     Configuration choices:
-    - n_workers=2: 
+    - n_workers=4: 
     - threads_per_worker=1: 
-    - memory_limit="6GB": Hard limit prevents OOM, forces disk spilling
+    - memory_limit="5GB": Hard limit prevents OOM, forces disk spilling
     
     Returns:
         Client: Dask distributed client instance
     """
     client = Client(
-        n_workers=2,
+        n_workers=4,
         threads_per_worker=1,
-        memory_limit="6GB",
+        memory_limit="5GB",
     )
     print("Dashboard:", client.dashboard_link)
     return client
