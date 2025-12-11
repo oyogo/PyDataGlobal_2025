@@ -8,11 +8,11 @@ format:
 editor: visual
 ---
 
-## What to expect {.smaller}
+## Agenda {.smaller}
 
 -   Definitions
 -   Spatial data
--   The problem/context
+-   Background
 -   Solution architecture
 -   Critical design decisions
 -   Best practises summary
@@ -78,13 +78,13 @@ Example: Population density raster
 :::
 ::::
 
-## Real-World use case: Small Area Estimation {.smaller}
+## Background: Small Area Estimation {.smaller}
 
--   As part of a small area estimation workflow, we needed to extract zonal statistics from geospatial covariates for use in modelling poverty estimates at granular levels.
+-   As part of a small area estimation workflow, we needed to extract zonal statistics from geospatial data for use in modelling poverty estimates at granular levels.
 -   We had to get data from various sources, harmonise the raster files, and then extract zonal statistics at the lowest adminstrative level.\
 -   While this was feasible for Bangladesh, one of the project focus countries, it quickly became clear that it might not be scalable for other project countries due to their large sizes and hence massive raster datasets.
 -   For instance, we worked with six population density raster from Meta, and their sizes varied significantly based on country sizes, ranging from 500MBs to 20GB per file.
--   Processing 6 such files alongside an additional 20 raster files for other variables posed significant computational challenges. And this is what led me to investigate way to process huge raster files within limited resources.
+-   Processing 6 such files alongside an additional 20 raster files for other variables posed significant computational challenges. And this is what led me to investigate ways to process huge raster files within limited resources.
 
 ## Solution architecture: *Xarray* {.smaller}
 
@@ -177,10 +177,9 @@ raster = rioxarray.open_rasterio(path, chunks={"x": 1024, "y": 1024})
 creates:   
 
 ```
-Full raster: 20,000 × 13,000 pixels Chunked into:    
+    
 ~260 blocks of 1024×1024 pixels each 
-Each chunk: ~4 MB (for float32 data) 
-Total: Still 20,000 × 13,000, but processed in pieces   
+Each chunk: ~4 MB (for float32 data)   
 
 ```         
 
@@ -192,7 +191,7 @@ Total: Still 20,000 × 13,000, but processed in pieces
 
 ::: {.callout-warning}
 ## Too small chunks 
-- Massive task graph (potentially 100+MBs)   
+- Massive task graph    
 - Scheduler becomes bottleneck   
 - More time managing tasks than processing.   
 :::
@@ -204,9 +203,7 @@ Total: Still 20,000 × 13,000, but processed in pieces
 
 ::: {.callout-warning} 
 ## Too large chunks
-- Huge chunks. 
-- Doesn't fit in worker memory.   
-- Memory pressure and swapping.  
+- Required more memory.  
 :::
 
 :::
@@ -269,28 +266,11 @@ Total: 781 tasks
 ```         
 
 ## 5. Reprojection with WarpedVRT {.smaller}
-Before discovering WarpedVRT, reprojection was a pain point, even with chunking. 
-
-```python
-
-raster = rioxarray.open_rasterio(path, chunks={"x": 1024, "y": 1024})
-reprojected = raster.rio.reproject(...)
-
-# Problem: Chunks misalign across CRS transformations
-Source chunks (UTM):        Dest chunks (WGS84):
-┌────┬────┐                ┌────┬────┐
-│ A  │ B  │  Reproject →   │ 1  │ 2  │
-├────┼────┤                ├────┼────┤
-│ C  │ D  │                │ 3  │ 4  │
-└────┴────┘                └────┴────┘
-
-Chunk 1 needs data from: A + B + C  ← Data shuffling!
-Chunk 2 needs data from: B + D      ← Redundant reads!
-
-```         
-## What is WarpedVRT and what does it do? {.smaller}
-- This is a virtual raster format that performs on-demand, windowed reprojection.   
+- Before discovering WarpedVRT, reprojection was a pain point, even with chunking.  
+- This was potentially caused by chunk misalignment across CRS transformations. 
+- WarpedVRT is a virtual raster format that performs on-demand, windowed reprojection.   
 - How it works:  
+
   - It reads and writes data in chunks or directly between files. 
   - This it does by creating a virtual file/view (think of it like a database view) with the desired CRS and resolution. 
   - So when reading the chunks for further processing, we are actually reading from the reprojected raster. 
