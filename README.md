@@ -2,6 +2,9 @@
 This repo contains materials for my PyData Global 2025 talk on building scalable geospatial raster processing pipelines using *Xarray*, *Dask*.  
 The talk focuses on *engineering principles, parallel processing, and memory-safe raster operations* especially when working with very large rasters.  
 
+![](www/pipeline)
+
+
 # Repository structure
 
 ```
@@ -50,7 +53,7 @@ The script reprojects into a **base grid** defined by:
 
 * CRS: `EPSG:4326`
 * Resolution: `(0.00083333333, -0.00083333333)`
-  (≈ 30 arc-seconds ~ 1 km)
+  (≈ ~ 100m)
 
 
 ## **4. Preprocessing Rules Per Folder**

@@ -332,7 +332,11 @@ GDAL Virtual Format (VRT) - VRT Tutorial: https://gdal.org/drivers/raster/vrt.ht
 
 ## 
 ::: {.center-xy}
-Thank you
-email: oyogoc@gmail.com
-LinkedIn: Oyogo Clinton
+
+Thank you !       
+
+email: oyogoc@gmail.com     
+
+LinkedIn: Oyogo Clinton    
+
 :::
