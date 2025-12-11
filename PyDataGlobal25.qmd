@@ -319,7 +319,7 @@ You can also use command-line tool like GDAL to reproject your files.
 ::::
 ## Pipeline summary
 
-![](www/pipeline_workflow.png) 
+![](www/pipeline_summary.png) 
 
 ## Key lessons {.smaller}
 
