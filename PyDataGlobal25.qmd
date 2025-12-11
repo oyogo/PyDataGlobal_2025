@@ -131,13 +131,10 @@ value = raster.sel(y=-10.5, x=35.2)  # Select by actual coordinates!
 
 ::: {.column width="50%"}  
 
-- Dask enables parallel, out-of-core computation on datasets larger than RAM. 
-- What you get with Dask.
-  - Out-of-core computation
-  - Automatic parallelization. 
-  - Task scheduling: determines optimal execution order, managing dependencies between tasks, and distributing work across workers. 
-  - Progress monitoring.    
-
+- It allows you to work beyond the limits of your machine's RAM.
+- With Dask, you can run tasks concurrently across multiple cores for faster, more efficient computation. 
+- And it scales seamlessly to distributed clusters, making it possible to handle massive, terabyte scale datasets. 
+   
 ::: 
 
 ::: {.column width="50%"}  
@@ -182,8 +179,9 @@ creates:
 
 ```
 Full raster: 20,000 × 13,000 pixels Chunked into:    
-~260 blocks of 1024×1024 pixels each Each chunk:    
-~4 MB (for float32 data) Total: Still 20,000 × 13,000, but processed in pieces   
+~260 blocks of 1024×1024 pixels each 
+Each chunk: ~4 MB (for float32 data) 
+Total: Still 20,000 × 13,000, but processed in pieces   
 
 ```         
 
@@ -237,9 +235,14 @@ Raster chunks:              Zone chunks:
 Any operations on this chunks won't work as they don't align!
 
 ```
+## 3. Rasterizing adminstrative zones 
+
+Create rasterized zone array with chunks EXACTLY matching raster.
+
+  ![](www/rasterize_admin_zones.png)
 
 ##
-### 3. Understanding Dask graphs {.smaller}
+### 4. Understanding Dask graphs {.smaller}
 - A Dask graph is Dask's internal presentation of your computation as a directed acyclic graph (DAG)
 
 Task graph in my pipeline: 
@@ -273,7 +276,7 @@ Total: 781 tasks
   - map_blocks failed because it expects array-like outputs whereas my function returns dictionaries so metadata inference fails. 
   - delayed worked as its flexible for arbitrary Python objects and it doesn't require metadata. 
 
-## 4. Reprojection with WarpedVRT {.smaller}
+## 5. Reprojection with WarpedVRT {.smaller}
 Before discovering WarpedVRT, reprojection was a pain point, even with chunking. 
 
 ```python
@@ -293,64 +296,17 @@ Chunk 1 needs data from: A + B + C  ← Data shuffling!
 Chunk 2 needs data from: B + D      ← Redundant reads!
 
 ```         
-## What is WarpedVRT? {.smaller}
+## What is WarpedVRT and what does it do? {.smaller}
 - This is a virtual raster format that performs on-demand, windowed reprojection.   
-- How it works:   
-
-```python
-with rasterio.open(src_path) as src: 
-  vrt = WarpedVRT( src, crs="EPSG:4326", 
-                  transform=dst_transform, 
-                  width=dst_width, 
-                  height=dst_height, 
-                  resampling=Resampling.sum )    
-# VRT is now a "virtual file" that appears reprojected   
-# but hasn't actually transformed anything yet!          
-
-raster = rioxarray.open_rasterio(vrt, chunks={"x": 1024, "y": 1024})   
-# Data stays lazy, chunks aligned to destination grid   
-```
+- How it works:  
+  - It reads and writes data in chunks or directly between files. 
+  - This it does by creating a virtual file/view (think of it like a database view) with the desired CRC and resolution. 
+  - So when reading the chunks for further processing, we are actually reading from the reprojected raster. 
+  
+::: {.callout-tip}
+You can also use command-line tool like GDAL to reproject your files. 
+:::
          
-## When you read a chunk {.smaller}
-- VRT computes source window (UTM Zone 46S) EPSG:4326 (35.5 degrees, -12.0 degrees) -> UTM (450000M, 8670000M).
-- So it reads only that source window from disk. 
-- Apply resampling on-the-fly (sum/neares/bilinear)
-- Return transformed pixels in destination grid 
-
-## My implementation {.smaller}
-
-```python
-
-def reproject_to_basegrid_vrt( src_raster_path, base_crs="EPSG:4326", base_res=(0.00083333333, -0.00083333333), resampling_method=Resampling.sum, out_chunks={"x": 1024, "y": 1024}, ): with rasterio.open(src_raster_path) as src: 
-# Calculate destination grid left, bottom, right, top = src.bounds xres, yres = base_res dst_transform = from_origin(left, top, xres, abs(yres)) dst_width = int(round((right - left) / xres)) dst_height = int(round((top - bottom) / abs(yres)))
-         
-    # Create virtual reprojected raster
-    vrt = WarpedVRT(
-        src,
-        crs=base_crs,
-        transform=dst_transform,
-        width=dst_width,
-        height=dst_height,
-        resampling=resampling_method,
-        add_alpha=False,
-    )
-
-    # Open with chunks - stays lazy!
-    da_vrt = rioxarray.open_rasterio(vrt, chunks=out_chunks).squeeze()
-    
-    # Assign coordinates
-    x_coords = (np.arange(dst_width) + 0.5) * xres + left
-    y_coords = top - (np.arange(dst_height) + 0.5) * abs(yres)
-    da_vrt = da_vrt.assign_coords({"x": x_coords, "y": y_coords})
-    
-    # Set metadata
-    da_vrt.rio.write_crs(base_crs, inplace=True)
-    da_vrt.rio.write_transform(dst_transform, inplace=True)
-
-    return da_vrt  # Lazy, chunked, virtually reprojected!
-    
-```
-
 ## Key lessons {.smaller}
 
 1.Chunking is fundamental. 
@@ -383,4 +339,11 @@ Rioxarray - Documentation: https://corteva.github.io/rioxarray/ Examples: https:
 
 Dask - Documentation: https://docs.dask.org/ - Best Practices: https://docs.dask.org/en/stable/best-practices.html - Array Documentation: https://docs.dask.org/en/stable/array.html
 
-GDAL Virtual Format (VRT) - VRT Tutorial: https://gdal.org/drivers/raster/vrt.html - WarpedVRT: https://rasterio.readthedocs.io/en/latest/api/rasterio.vrt.html
+GDAL Virtual Format (VRT) - VRT Tutorial: https://gdal.org/drivers/raster/vrt.html - WarpedVRT: https://rasterio.readthedocs.io/en/latest/api/rasterio.vrt.html  
+
+## 
+::: {.center-xy}
+Thank you
+email: oyogoc@gmail.com
+LinkedIn: Oyogo Clinton
+:::
